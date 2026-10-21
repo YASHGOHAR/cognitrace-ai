@@ -1,0 +1,464 @@
+{
+  "version": 1,
+  "examples": [
+    {
+      "id": "graph-bfs",
+      "area": "programming",
+      "session": "I need the shortest path in an unweighted graph. I considered Dijkstra, but I chose BFS because every edge has equal cost. I will use a queue to explore nodes level by level. I am assuming the graph fits in memory.",
+      "expected": {
+        "problem": {
+          "text": "Find the shortest path in an unweighted graph.",
+          "evidence": "shortest path in an unweighted graph"
+        },
+        "decisions": [
+          {
+            "text": "Use BFS.",
+            "evidence": "I chose BFS"
+          }
+        ],
+        "justifications": [
+          {
+            "text": "Every edge has equal cost.",
+            "evidence": "every edge has equal cost"
+          }
+        ],
+        "alternatives_considered": [
+          {
+            "text": "Dijkstra.",
+            "evidence": "I considered Dijkstra"
+          }
+        ],
+        "assumptions": [
+          {
+            "text": "The graph fits in memory.",
+            "evidence": "I am assuming the graph fits in memory"
+          }
+        ]
+      }
+    },
+    {
+      "id": "debug-zero-index",
+      "area": "debugging",
+      "session": "The report crashes when the list is empty. I first suspected the parser, but the traceback points to items[0]. I will add an empty-list check because the failing input has zero items.",
+      "expected": {
+        "problem": {
+          "text": "Fix a crash when the list is empty.",
+          "evidence": "crashes when the list is empty"
+        },
+        "decisions": [
+          {
+            "text": "Add an empty-list check.",
+            "evidence": "I will add an empty-list check"
+          }
+        ],
+        "justifications": [
+          {
+            "text": "The failing input has zero items.",
+            "evidence": "the failing input has zero items"
+          }
+        ],
+        "alternatives_considered": [
+          {
+            "text": "The parser was the suspected cause.",
+            "evidence": "I first suspected the parser"
+          }
+        ],
+        "assumptions": []
+      }
+    },
+    {
+      "id": "cache-product-page",
+      "area": "programming",
+      "session": "The product page is slow because it repeats the same catalog query. I will cache the catalog response for five minutes; the data changes only a few times an hour. I considered adding a larger server, but that costs more.",
+      "expected": {
+        "problem": {
+          "text": "Reduce repeated catalog queries on the product page.",
+          "evidence": "product page is slow because it repeats the same catalog query"
+        },
+        "decisions": [
+          {
+            "text": "Cache the catalog response for five minutes.",
+            "evidence": "I will cache the catalog response for five minutes"
+          }
+        ],
+        "justifications": [
+          {
+            "text": "The data changes only a few times an hour.",
+            "evidence": "the data changes only a few times an hour"
+          }
+        ],
+        "alternatives_considered": [
+          {
+            "text": "Add a larger server.",
+            "evidence": "I considered adding a larger server"
+          }
+        ],
+        "assumptions": []
+      }
+    },
+    {
+      "id": "sprint-cut",
+      "area": "planning",
+      "session": "We have two days left and three unfinished tasks. I will finish the login bug first because customers are blocked. I am dropping the color polish for this release. We can schedule that polish next week.",
+      "expected": {
+        "problem": {
+          "text": "Choose what to finish with two days left in the sprint.",
+          "evidence": "two days left and three unfinished tasks"
+        },
+        "decisions": [
+          {
+            "text": "Finish the login bug first.",
+            "evidence": "I will finish the login bug first"
+          },
+          {
+            "text": "Drop the color polish from this release.",
+            "evidence": "I am dropping the color polish for this release"
+          }
+        ],
+        "justifications": [
+          {
+            "text": "Customers are blocked by the login bug.",
+            "evidence": "customers are blocked"
+          }
+        ],
+        "alternatives_considered": [
+          {
+            "text": "Finish the color polish now.",
+            "evidence": "unfinished tasks"
+          }
+        ],
+        "assumptions": []
+      }
+    },
+    {
+      "id": "commute-rain",
+      "area": "everyday",
+      "session": "It may rain during my commute. I will take the bus instead of cycling because I do not have a rain jacket. The bus takes about twenty minutes longer.",
+      "expected": {
+        "problem": {
+          "text": "Choose a way to commute when rain is possible.",
+          "evidence": "may rain during my commute"
+        },
+        "decisions": [
+          {
+            "text": "Take the bus.",
+            "evidence": "I will take the bus"
+          }
+        ],
+        "justifications": [
+          {
+            "text": "I do not have a rain jacket.",
+            "evidence": "I do not have a rain jacket"
+          }
+        ],
+        "alternatives_considered": [
+          {
+            "text": "Cycle.",
+            "evidence": "instead of cycling"
+          }
+        ],
+        "assumptions": []
+      }
+    },
+    {
+      "id": "yellow-leaves",
+      "area": "everyday",
+      "session": "The leaves on my desk plant look yellow today. I have not checked the soil or changed anything yet.",
+      "expected": {
+        "problem": {
+          "text": "Understand why the desk plant leaves look yellow.",
+          "evidence": "leaves on my desk plant look yellow"
+        },
+        "decisions": [],
+        "justifications": [],
+        "alternatives_considered": [],
+        "assumptions": []
+      }
+    },
+    {
+      "id": "dinner-change",
+      "area": "everyday",
+      "session": "I planned to make pasta, but the shop is out of tomatoes. I will make lentil soup instead because I already have lentils and carrots. I considered ordering food, but cooking uses what is in the cupboard.",
+      "expected": {
+        "problem": {
+          "text": "Decide what to make for dinner with no tomatoes available.",
+          "evidence": "shop is out of tomatoes"
+        },
+        "decisions": [
+          {
+            "text": "Make lentil soup instead of pasta.",
+            "evidence": "I will make lentil soup instead"
+          }
+        ],
+        "justifications": [
+          {
+            "text": "I already have lentils and carrots.",
+            "evidence": "I already have lentils and carrots"
+          },
+          {
+            "text": "Cooking uses what is in the cupboard.",
+            "evidence": "cooking uses what is in the cupboard"
+          }
+        ],
+        "alternatives_considered": [
+          {
+            "text": "Order food.",
+            "evidence": "I considered ordering food"
+          }
+        ],
+        "assumptions": []
+      }
+    },
+    {
+      "id": "move-house",
+      "area": "planning",
+      "session": "I need to move by Friday. I will pack the kitchen tonight and book a van tomorrow. I am assuming the van company has a slot available; I have not called them yet.",
+      "expected": {
+        "problem": {
+          "text": "Plan the move before Friday.",
+          "evidence": "need to move by Friday"
+        },
+        "decisions": [
+          {
+            "text": "Pack the kitchen tonight.",
+            "evidence": "I will pack the kitchen tonight"
+          },
+          {
+            "text": "Book a van tomorrow.",
+            "evidence": "book a van tomorrow"
+          }
+        ],
+        "justifications": [],
+        "alternatives_considered": [],
+        "assumptions": [
+          {
+            "text": "The van company has a slot available.",
+            "evidence": "assuming the van company has a slot available"
+          }
+        ]
+      }
+    },
+    {
+      "id": "sink-drip",
+      "area": "everyday",
+      "session": "Water is dripping under the sink. I put a bowl underneath for now and will call the landlord because I rent this apartment. I do not know where the shutoff valve is.",
+      "expected": {
+        "problem": {
+          "text": "Respond to a leak under the sink.",
+          "evidence": "Water is dripping under the sink"
+        },
+        "decisions": [
+          {
+            "text": "Put a bowl underneath temporarily.",
+            "evidence": "I put a bowl underneath for now"
+          },
+          {
+            "text": "Call the landlord.",
+            "evidence": "will call the landlord"
+          }
+        ],
+        "justifications": [
+          {
+            "text": "I rent this apartment.",
+            "evidence": "because I rent this apartment"
+          }
+        ],
+        "alternatives_considered": [],
+        "assumptions": []
+      }
+    },
+    {
+      "id": "duplicate-files",
+      "area": "programming",
+      "session": "I need to remove duplicate photos from a folder. I will compare file hashes rather than names because edited copies can have different names. I will move matches to a review folder instead of deleting them.",
+      "expected": {
+        "problem": {
+          "text": "Find duplicate photos in a folder.",
+          "evidence": "remove duplicate photos from a folder"
+        },
+        "decisions": [
+          {
+            "text": "Compare file hashes.",
+            "evidence": "I will compare file hashes"
+          },
+          {
+            "text": "Move matches to a review folder.",
+            "evidence": "I will move matches to a review folder"
+          }
+        ],
+        "justifications": [
+          {
+            "text": "Edited copies can have different names.",
+            "evidence": "edited copies can have different names"
+          }
+        ],
+        "alternatives_considered": [
+          {
+            "text": "Compare file names.",
+            "evidence": "rather than names"
+          }
+        ],
+        "assumptions": []
+      }
+    },
+    {
+      "id": "retry-to-root-cause",
+      "area": "debugging",
+      "session": "The upload sometimes fails. I wanted to add three retries, but the logs show the server returns 413 when the file is too large. I changed my mind: I will show a size limit message because retrying will not shrink the file.",
+      "expected": {
+        "problem": {
+          "text": "Handle uploads that fail because files are too large.",
+          "evidence": "upload sometimes fails"
+        },
+        "decisions": [
+          {
+            "text": "Show a size limit message.",
+            "evidence": "I will show a size limit message"
+          }
+        ],
+        "justifications": [
+          {
+            "text": "Retrying will not shrink the file.",
+            "evidence": "retrying will not shrink the file"
+          }
+        ],
+        "alternatives_considered": [
+          {
+            "text": "Add three retries.",
+            "evidence": "I wanted to add three retries"
+          }
+        ],
+        "assumptions": []
+      }
+    },
+    {
+      "id": "study-blocks",
+      "area": "planning",
+      "session": "I have an exam in a week. I will study in 25-minute blocks each evening. Short blocks help me stay focused, and I can study at home.",
+      "expected": {
+        "problem": {
+          "text": "Prepare for an exam in a week.",
+          "evidence": "exam in a week"
+        },
+        "decisions": [
+          {
+            "text": "Study in 25-minute blocks each evening.",
+            "evidence": "I will study in 25-minute blocks each evening"
+          }
+        ],
+        "justifications": [
+          {
+            "text": "Short blocks help me stay focused.",
+            "evidence": "Short blocks help me stay focused"
+          }
+        ],
+        "alternatives_considered": [],
+        "assumptions": [
+          {
+            "text": "The student can study at home.",
+            "evidence": "I can study at home"
+          }
+        ]
+      }
+    },
+    {
+      "id": "wifi-unclear",
+      "area": "debugging",
+      "session": "My laptop keeps losing Wi-Fi in the bedroom. It works in the kitchen. Maybe the signal is weak, or maybe the laptop has an issue; I have not tested another device there.",
+      "expected": {
+        "problem": {
+          "text": "Find why the laptop loses Wi-Fi in the bedroom.",
+          "evidence": "laptop keeps losing Wi-Fi in the bedroom"
+        },
+        "decisions": [],
+        "justifications": [],
+        "alternatives_considered": [],
+        "assumptions": []
+      }
+    },
+    {
+      "id": "venue-change",
+      "area": "planning",
+      "session": "I booked the community room for the workshop, but it only seats twelve and twenty people registered. I will move it to the library hall because it seats thirty. I considered splitting into two sessions, but that would make the schedule harder.",
+      "expected": {
+        "problem": {
+          "text": "Choose a venue for a workshop with twenty registrations.",
+          "evidence": "twenty people registered"
+        },
+        "decisions": [
+          {
+            "text": "Move the workshop to the library hall.",
+            "evidence": "I will move it to the library hall"
+          }
+        ],
+        "justifications": [
+          {
+            "text": "The library hall seats thirty.",
+            "evidence": "it seats thirty"
+          }
+        ],
+        "alternatives_considered": [
+          {
+            "text": "Keep the community room.",
+            "evidence": "booked the community room"
+          },
+          {
+            "text": "Split into two sessions.",
+            "evidence": "I considered splitting into two sessions"
+          }
+        ],
+        "assumptions": []
+      }
+    },
+    {
+      "id": "grocery-budget",
+      "area": "everyday",
+      "session": "I have 500 rupees for groceries this week. I bought rice for 120 and vegetables for 180, leaving 200. I will skip snacks so I stay within the budget.",
+      "expected": {
+        "problem": {
+          "text": "Buy groceries within a 500-rupee weekly budget.",
+          "evidence": "500 rupees for groceries this week"
+        },
+        "decisions": [
+          {
+            "text": "Skip snacks.",
+            "evidence": "I will skip snacks"
+          }
+        ],
+        "justifications": [
+          {
+            "text": "Rice and vegetables leave 200 rupees.",
+            "evidence": "leaving 200"
+          }
+        ],
+        "alternatives_considered": [],
+        "assumptions": []
+      }
+    },
+    {
+      "id": "travel-options-unresolved",
+      "area": "planning",
+      "session": "I copied “bus, train, bike” into my notes for Saturday. I have not written down a destination, reason, or choice yet.",
+      "expected": {
+        "problem": null,
+        "decisions": [],
+        "justifications": [],
+        "alternatives_considered": [
+          {
+            "text": "Bus.",
+            "evidence": "bus"
+          },
+          {
+            "text": "Train.",
+            "evidence": "train"
+          },
+          {
+            "text": "Bike.",
+            "evidence": "bike"
+          }
+        ],
+        "assumptions": []
+      }
+    }
+  ]
+}

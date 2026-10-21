@@ -1,0 +1,4 @@
+python-dotenv>=1.0
+google-genai>=1.0
+pydantic>=2.7
+pytest>=7.4
