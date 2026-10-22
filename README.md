@@ -130,6 +130,61 @@ Pass `db_path` to use a non-default local SQLite file, for example in tests. The
 
 The backend-facing function signature, JSON serialization, setup, and error contract are documented in [docs/ai_integration.md](docs/ai_integration.md).
 
+## HTTP backend and deployment
+
+The FastAPI backend wraps the existing workflow and SQLite store. Session endpoints require a bearer token; health remains public. Configure these variables in local `.env` or in the deployment provider's secret/environment settings:
+
+| Variable | Required value |
+|---|---|
+| `GEMINI_API_KEY` | Your Gemini key, stored as a secret. Needed for `POST /api/sessions`. |
+| `GEMINI_MODEL` | Optional; defaults to the model in `ai/core/config.py`. |
+| `COGNITRACE_API_TOKEN` | A random secret of at least 32 characters. Required to access session routes; short values and the example placeholder are rejected. Generate one with `python -c "import secrets; print(secrets.token_urlsafe(32))"`. |
+| `CORS_ALLOWED_ORIGINS` | Comma-separated exact browser origins (no trailing slash). Example: `https://stalwart-chebakia-c6da35.netlify.app,http://localhost:5173`. |
+| `COGNITRACE_DB_PATH` | Path to the SQLite file. Locally, `data/cognitrace.db` is fine. In production, set it inside a mounted persistent volume. |
+| `PORT` | Set by most hosting providers. The app defaults to `8000` for local use. |
+
+For local setup, create `.env` from `.env.example` only if one does not already exist, then replace all secret placeholders with private values. Do not commit `.env`. The configured CORS list includes the current frontend origin `https://stalwart-chebakia-c6da35.netlify.app`; override it for preview or other deployments.
+
+Run locally in PowerShell with reload enabled:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+python -m uvicorn backend.app.main:app --reload
+```
+
+For a production host, use this start command:
+
+```text
+python -m backend
+```
+
+It binds to `0.0.0.0` and reads the port from `PORT` (defaulting to `8000` locally). It does not enable auto-reload.
+
+### Authentication and session privacy
+
+Send `Authorization: Bearer <COGNITRACE_API_TOKEN>` to `POST /api/sessions`, `GET /api/sessions/{session_id}`, and `GET /api/sessions`. Without a configured server token, these endpoints fail closed with `503`; missing or incorrect credentials receive `401`. `GET /health` does not return session data and remains unauthenticated.
+
+This is a minimal shared service token, not user login or per-user authorization: every authorized caller can access the same SQLite session history. **Do not place this token in a public Netlify/browser JavaScript bundle.** Before allowing browser users to access private sessions, put a trusted server-side component in front of this API or add real user authentication and per-user data ownership. CORS is not authentication.
+
+### Persistent SQLite storage
+
+Hosted container filesystems are often temporary and may be replaced during restarts or deployments. Attach a persistent disk/volume in the hosting provider and set `COGNITRACE_DB_PATH` to a file inside that volume, for example `/mnt/cognitrace-data/cognitrace.db` only when that exact mount point is configured. Do not assume the repository's `data/` directory persists. Keep backups of the volume. SQLite is suitable for a small, single-instance deployment; do not run multiple API instances against an ordinary local SQLite file. Move to a managed database before scaling horizontally.
+
+The endpoints are `GET /health`, `POST /api/sessions`, `GET /api/sessions/{session_id}`, and paginated `GET /api/sessions?limit=20&offset=0` (maximum `limit` is 100). Example local PowerShell calls (after setting `$env:COGNITRACE_API_TOKEN` to the same private value used by the backend):
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8000/health
+
+$headers = @{ Authorization = "Bearer $env:COGNITRACE_API_TOKEN" }
+$body = @{ session_text = "I chose BFS because all edges have equal cost." } | ConvertTo-Json
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/api/sessions `
+  -Headers $headers -ContentType "application/json" -Body $body
+
+Invoke-RestMethod "http://127.0.0.1:8000/api/sessions?limit=10&offset=0" -Headers $headers
+```
+
+Validation and internal errors are sanitized so rejected session text, credentials, provider errors, and stack traces are not returned. Extraction failures are not saved; failures after saving include the saved session ID. No frontend-to-backend integration has been tested.
+
 For the backend-facing function signature, JSON serialization, setup, and error contract, see [docs/ai_integration.md](docs/ai_integration.md).
 
 Example shape (the actual wording is generated from the supplied session):

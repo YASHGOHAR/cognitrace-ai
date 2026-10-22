@@ -72,6 +72,7 @@ def test_list_sessions_is_newest_first_and_obeys_limit(database_directory):
 
     assert [item.session_id for item in recent] == ["newer"]
     assert [item.session_id for item in list_sessions(db_path=database)] == ["newer", "older"]
+    assert [item.session_id for item in list_sessions(limit=1, offset=1, db_path=database)] == ["older"]
 
 
 def test_unknown_session_id_returns_none(database_directory):
@@ -104,3 +105,5 @@ def test_invalid_ids_and_limits_are_rejected(database_directory):
         save_session("I chose BFS", extraction(), session_id=" ", db_path=database_directory / "sessions.db")
     with pytest.raises(ValueError, match="positive integer"):
         list_sessions(limit=0, db_path=database_directory / "sessions.db")
+    with pytest.raises(ValueError, match="non-negative integer"):
+        list_sessions(offset=-1, db_path=database_directory / "sessions.db")

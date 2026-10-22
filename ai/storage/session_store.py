@@ -117,13 +117,21 @@ def get_session(
 
 
 def list_sessions(
-    *, limit: int | None = 20, db_path: str | Path | None = None
+    *,
+    limit: int | None = 20,
+    offset: int = 0,
+    db_path: str | Path | None = None,
 ) -> list[StoredSession]:
-    """List recent sessions newest first; None returns every stored session."""
+    """List recent sessions newest first with optional pagination.
+
+    ``limit=None`` returns every row from ``offset`` onward.
+    """
     if limit is not None and (
         isinstance(limit, bool) or not isinstance(limit, int) or limit <= 0
     ):
         raise ValueError("Limit must be a positive integer or None.")
+    if isinstance(offset, bool) or not isinstance(offset, int) or offset < 0:
+        raise ValueError("Offset must be a non-negative integer.")
     path = _database_path(db_path)
     initialize_database(path)
     with closing(sqlite3.connect(path)) as connection:
@@ -132,9 +140,11 @@ def list_sessions(
             "FROM reasoning_sessions ORDER BY created_at DESC, session_id DESC"
         )
         if limit is None:
-            rows = connection.execute(query).fetchall()
+            rows = connection.execute(query + " LIMIT -1 OFFSET ?", (offset,)).fetchall()
         else:
-            rows = connection.execute(query + " LIMIT ?", (limit,)).fetchall()
+            rows = connection.execute(
+                query + " LIMIT ? OFFSET ?", (limit, offset)
+            ).fetchall()
     return [
         StoredSession(row[0], row[1], row[2], ReasoningExtraction.model_validate(json.loads(row[3])))
         for row in rows
