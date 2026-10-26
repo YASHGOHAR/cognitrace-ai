@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 import pytest
 from fastapi import HTTPException
+from fastapi.testclient import TestClient
 from pydantic import ValidationError
 from jwt import PyJWKClientConnectionError
 
@@ -166,6 +167,14 @@ def test_openapi_documents_bearer_authentication():
 
 def test_health_is_public():
     assert health() == {"status": "ok"}
+
+
+def test_private_session_responses_are_not_cached():
+    response = TestClient(app).get("/api/sessions")
+
+    assert response.status_code == 401
+    assert response.headers["cache-control"] == "no-store"
+    assert response.headers["pragma"] == "no-cache"
 
 
 def test_chat_generates_reply_from_authenticated_conversation():

@@ -17,7 +17,7 @@ The Vite development server prints its local URL (normally http://localhost:5173
 
 VITE_USE_MOCK_API=true is the safe default. The UI shows a DEMO MODE badge and mock conversations, analysis, patterns, and recommendations are explicitly examples, not generated responses.
 
-Real mode uses Supabase Auth, keeps its user token in memory only, and submits the complete set of notes once when the user completes a session. Drafts do not persist across refreshes. The backend supports session create-and-extract, history, and individual reads. It does not yet support incremental AI chat, deletion, pattern-history retrieval, recommendations, or feedback; those controls are not presented as working integrations.
+Real mode uses Supabase Auth and keeps the user token and active draft in memory. Chat turns go through the authenticated FastAPI route; completing a session submits only the user's notes for evidence-grounded extraction. Drafts do not persist across refreshes. The backend supports chat, session create-and-extract, paginated history, and individual reads. It does not yet support deletion, pattern-history retrieval, recommendations, or feedback. Those limits are labeled in the real-mode UI instead of being presented as working integrations.
 
 ## Environment variables
 
@@ -37,5 +37,6 @@ The backend must have SUPABASE_URL, a Gemini key, CORS_ALLOWED_ORIGINS, and COGN
 - POST /sessions posts { "session_text": "..." } and returns the existing workflow result.
 - GET /sessions?limit=100&offset=0 reads the authenticated user's history.
 - GET /sessions/{session_id} reads one session owned by the current user.
+- POST /sessions/chat accepts the current conversation and returns one Gemini reply.
 
-The base URL already ends in /api; these route paths are appended by src/api/backendAdapter.ts. No unsupported auth, message, analysis, delete, pattern, recommendation, or feedback API routes are called.
+The base URL already ends in /api; these route paths are appended by src/api/backendAdapter.ts. The frontend reads additional history pages through the same paginated endpoint. No unsupported delete, pattern-history, recommendation, or feedback routes are called.

@@ -7,6 +7,8 @@ import {
   toSession,
   type WorkflowResponse,
 } from "./backendAdapter";
+import { formatUserTranscript } from "./transcript";
+import { appendChatTurn } from "./chatSession";
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL ?? "https://cognitrace-ai.onrender.com/api";
 export const mockMode = import.meta.env.VITE_USE_MOCK_API !== "false";
@@ -127,17 +129,7 @@ export const api = {
     }
     const draft = drafts.get(sessionId);
     if (!draft) throw new Error("Only an unsaved transcript can receive new notes.");
-    draft.messages.push({ id: crypto.randomUUID(), role: "user", content, createdAt: new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) });
-    const reply = await backend.chat(
-      draft.messages.map(({ role, content: message }) => ({ role, content: message })),
-    );
-    draft.messages.push({
-      id: crypto.randomUUID(),
-      role: "assistant",
-      content: reply,
-      createdAt: new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
-    });
-    return [...draft.messages];
+    return appendChatTurn(draft.messages, content, (messages) => backend.chat(messages));
   },
   async completeSession(sessionId: string): Promise<string> {
     if (mockMode) {
@@ -150,7 +142,8 @@ export const api = {
     }
     const draft = drafts.get(sessionId);
     if (!draft || !draft.messages.length) throw new Error("Add at least one note before submitting the transcript.");
-    const transcript = draft.messages.map((message) => message.content).join("\n\n");
+    const transcript = formatUserTranscript(draft.messages);
+    if (!transcript) throw new Error("Add at least one note before submitting the transcript.");
     const result: WorkflowResponse = await backend.submitTranscript(transcript);
     drafts.delete(sessionId);
     completedAnalysis.set(result.session_id, toAnalysis(result.reasoning, result.detected_patterns[0]?.reflection_question));

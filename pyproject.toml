@@ -1,17 +1,31 @@
 [project]
 name = "cognitrace"
 version = "0.1.0"
-description = "Add your description here"
+description = "Evidence-grounded reflection sessions with Gemini and FastAPI"
 readme = "README.md"
 authors = [
     { name = "Nikhil Yadav", email = "ny1113548@gmail.com" }
 ]
 requires-python = ">=3.14"
-dependencies = []
+dependencies = [
+    "python-dotenv==1.2.4",
+    "google-genai==2.33.0",
+    "pydantic==2.14.1",
+    "fastapi==0.162.0",
+    "uvicorn==0.54.0",
+    "PyJWT[crypto]==2.15.1",
+]
 
 [project.scripts]
-cognitrace = "cognitrace:main"
+cognitrace = "backend.__main__:main"
+
+[project.optional-dependencies]
+dev = ["pytest==9.1.1"]
 
 [build-system]
 requires = ["uv_build>=0.13.1,<0.14.0"]
 build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = ["ai", "backend"]
+module-root = ""

@@ -499,7 +499,131 @@ npx --yes supabase@2.121.0 status
 Do not use `--linked` and do not run commands against a hosted project for
 local testing.
 
-## 14. GitHub and second-device setup
+## 14. Hosting the frontend and backend separately
+
+The frontend and backend can be hosted on different providers. They connect
+over HTTPS using the backend's public API URL:
+
+```text
+Browser → hosted frontend → HTTPS request → hosted FastAPI backend
+                                             ├── hosted Supabase
+                                             └── Gemini API
+```
+
+For example:
+
+```text
+Frontend: https://cognitrace.example.com
+Backend:  https://api.cognitrace.example.com
+API base: https://api.cognitrace.example.com/api
+```
+
+The frontend does not connect to the backend by folder path, localhost, or a
+Docker network. It uses `VITE_API_BASE_URL`, which is compiled into the
+frontend during its production build.
+
+### Backend hosting configuration
+
+On the backend host, configure these server-side environment variables:
+
+```dotenv
+GEMINI_API_KEY=your_private_gemini_key
+GEMINI_MODEL=gemini-3.8-flash
+SUPABASE_URL=https://your-project-ref.supabase.co
+SUPABASE_PUBLISHABLE_KEY=your_supabase_publishable_key
+COGNITRACE_STORAGE_BACKEND=supabase
+CORS_ALLOWED_ORIGINS=https://cognitrace.example.com
+PORT=8000
+```
+
+Use the hosted Supabase project URL, not `http://127.0.0.1:54321`. Apply the
+project migration to the intended hosted database before enabling Supabase
+storage. The backend host must be able to reach Supabase and Gemini over the
+network.
+
+`GEMINI_API_KEY` must remain a backend secret. Never put it in the frontend
+host's environment variables or in a `VITE_*` variable. The backend should
+also use the provider's secret/server-side environment storage rather than
+committing values to GitHub.
+
+### Frontend hosting configuration
+
+On the frontend host, configure only public browser variables:
+
+```dotenv
+VITE_USE_MOCK_API=false
+VITE_API_BASE_URL=https://api.cognitrace.example.com/api
+VITE_SUPABASE_URL=https://your-project-ref.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=your_supabase_publishable_key
+```
+
+Then build and publish the `frontend/dist` directory:
+
+```bash
+cd frontend
+npm ci
+npm run build
+```
+
+For Netlify, this repository already contains `netlify.toml`, which sets:
+
+```text
+Base directory: frontend
+Build command: npm run build
+Publish directory: dist
+```
+
+Set the same `VITE_*` variables in the Netlify site settings and trigger a new
+deploy after changing them. Do not expect changing a local `.env.local` file
+to update an already deployed frontend.
+
+### CORS must match the deployed frontend exactly
+
+If the frontend URL is `https://cognitrace.example.com`, the backend must use:
+
+```dotenv
+CORS_ALLOWED_ORIGINS=https://cognitrace.example.com
+```
+
+Do not add a trailing slash. If both a custom domain and the provider domain
+are used, list both comma-separated:
+
+```dotenv
+CORS_ALLOWED_ORIGINS=https://cognitrace.example.com,https://your-site.netlify.app
+```
+
+After changing backend environment variables, restart or redeploy FastAPI.
+After changing frontend environment variables, rebuild and redeploy the
+frontend.
+
+### Production connection checklist
+
+1. Create or select one hosted Supabase project for Auth and PostgreSQL.
+2. Apply the Cognitrace migration to that project and verify its RLS policies.
+3. Deploy FastAPI with the hosted Supabase URL, Gemini key, and production
+   CORS origin.
+4. Open the deployed backend health URL:
+   `https://api.cognitrace.example.com/health`.
+5. Confirm it returns `{"status":"ok"}`.
+6. Configure the frontend's `VITE_API_BASE_URL` to end in `/api`.
+7. Configure the frontend with the same hosted Supabase URL and publishable
+   key.
+8. Build and deploy the frontend.
+9. Create a test account from the deployed site.
+10. Send a chat message and complete a session.
+11. Confirm the session appears after refreshing and belongs only to that user.
+
+### Common split-hosting mistakes
+
+- `VITE_API_BASE_URL` still points to `http://127.0.0.1:8000/api`.
+- The frontend was not rebuilt after changing a `VITE_*` variable.
+- `CORS_ALLOWED_ORIGINS` contains the wrong domain or a trailing slash.
+- FastAPI is using local Supabase values instead of hosted Supabase values.
+- `COGNITRACE_STORAGE_BACKEND` is still `sqlite` on an ephemeral host.
+- A Gemini key or Supabase secret key was accidentally exposed in frontend
+  variables.
+
+## 15. GitHub and second-device setup
 
 Pushing the repository to GitHub transfers source code, migrations, tests,
 dependency lockfiles, and setup templates. It does **not** transfer:
@@ -525,7 +649,7 @@ On a second device:
 9. Start Vite from `frontend/` in another terminal.
 10. Create a new local account and use the website.
 
-## 15. Important limitations
+## 16. Important limitations
 
 - The local Supabase stack is disposable unless you configure persistent
   storage.
@@ -537,7 +661,7 @@ On a second device:
   database.
 - Passing tests does not establish that the system improves human reasoning.
 
-## 16. More documentation
+## 17. More documentation
 
 - [Local setup](docs/LOCAL_SETUP.md)
 - [Technical architecture](docs/TECHNICAL_ARCHITECTURE.md)

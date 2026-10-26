@@ -1,6 +1,8 @@
 __pycache__/
 *.py[cod]
 .pytest_cache/
+.coverage
+htmlcov/
 .venv/
 venv/
 env/
@@ -10,6 +12,10 @@ env/
 data/
 work/
 outputs/
+build/
+dist/
+*.egg-info/
+**/.DS_Store
 .vscode/
 *.db
 *.sqlite

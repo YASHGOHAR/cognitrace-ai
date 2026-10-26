@@ -19,6 +19,16 @@ app.add_middleware(
 )
 
 
+@app.middleware("http")
+async def prevent_session_response_caching(request: Request, call_next):
+    """Keep private transcripts and reasoning out of browser/proxy caches."""
+    response = await call_next(request)
+    if request.url.path.startswith("/api/sessions"):
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["Pragma"] = "no-cache"
+    return response
+
+
 @app.exception_handler(RequestValidationError)
 async def sanitized_validation_error(
     request: Request, exc: RequestValidationError

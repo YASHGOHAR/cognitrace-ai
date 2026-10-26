@@ -48,6 +48,10 @@ export type WorkflowResponse = {
 };
 export type ChatMessage = { role: "user" | "assistant"; content: string };
 
+// Keep aligned with backend/app/schemas.py: ChatMessage and ChatRequest.
+export const CHAT_MESSAGE_MAX_LENGTH = 4000;
+export const CHAT_MESSAGES_MAX_LENGTH = 40;
+
 type AdapterOptions = {
   baseUrl: string;
   getAccessToken: () => string | undefined;
@@ -137,8 +141,18 @@ export function createBackendAdapter({ baseUrl, getAccessToken, fetcher = fetch 
 
   return {
     async listSessions(): Promise<Session[]> {
-      const page = await request<{ items: StoredSession[]; limit: number; offset: number }>("/sessions?limit=100&offset=0");
-      return page.items.map(toSession);
+      const records: StoredSession[] = [];
+      const pageSize = 100;
+      let offset = 0;
+      while (true) {
+        const page = await request<{ items: StoredSession[]; limit: number; offset: number }>(
+          `/sessions?limit=${pageSize}&offset=${offset}`,
+        );
+        records.push(...page.items);
+        offset += page.items.length;
+        if (page.items.length < page.limit) break;
+      }
+      return records.map(toSession);
     },
     async getSession(sessionId: string): Promise<StoredSession> {
       return request<StoredSession>("/sessions/" + encodeURIComponent(sessionId));

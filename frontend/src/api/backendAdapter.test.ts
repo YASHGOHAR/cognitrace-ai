@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { createBackendAdapter, toAnalysis, type Reasoning } from "./backendAdapter";
+import { createBackendAdapter, toAnalysis, type ChatMessage, type Reasoning } from "./backendAdapter";
+import { formatUserTranscript } from "./transcript";
+import { appendChatTurn } from "./chatSession";
+import type { Message } from "../types";
 
 const reasoning: Reasoning = {
   problem: { text: "Find shortest path", evidence: "find shortest path" },
@@ -60,6 +63,27 @@ describe("backend API adapter", () => {
     expect(fetcher.mock.calls[0][0]).toBe("https://api.example/api/sessions?limit=100&offset=0");
   });
 
+  it("loads every page of session history using the existing endpoint", async () => {
+    const rows = Array.from({ length: 100 }, (_, index) => ({
+      session_id: `saved-${index}`,
+      created_at: "2026-10-22T10:00:00+00:00",
+      session_text: "I will use BFS.",
+      reasoning,
+    }));
+    const fetcher = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ items: rows, limit: 100, offset: 0 }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ items: [{ ...rows[0], session_id: "saved-last" }], limit: 100, offset: 100 }), { status: 200 }));
+    const adapter = createBackendAdapter({ baseUrl: "https://api.example/api", getAccessToken: () => "user-token", fetcher });
+
+    const sessions = await adapter.listSessions();
+
+    expect(sessions).toHaveLength(101);
+    expect(fetcher.mock.calls.map(([url]) => url)).toEqual([
+      "https://api.example/api/sessions?limit=100&offset=0",
+      "https://api.example/api/sessions?limit=100&offset=100",
+    ]);
+  });
+
   it("does not issue unauthenticated requests", async () => {
     const fetcher = vi.fn();
     const adapter = createBackendAdapter({ baseUrl: "https://api.example/api", getAccessToken: () => undefined, fetcher });
@@ -104,6 +128,36 @@ describe("backend API adapter", () => {
     expect(view.traces).toEqual([
       { type: "Problem", content: "Find shortest path", evidence: "find shortest path" },
       { type: "Decision", content: "Use BFS", evidence: "I will use BFS" },
+    ]);
+  });
+
+  it("builds saved evidence from the user's words only", () => {
+    expect(formatUserTranscript([
+      { role: "user", content: "  I prefer option A.  " },
+      { role: "assistant", content: "Option A sounds reasonable." },
+      { role: "user", content: "I will decide after asking the team." },
+      { role: "assistant", content: "That may give you useful evidence." },
+    ])).toBe("I prefer option A.\n\nI will decide after asking the team.");
+  });
+
+  it("removes a user turn after a failed chat request so retries do not duplicate it", async () => {
+    const messages: Message[] = [];
+    const requestReply = vi.fn().mockRejectedValue(new Error("offline"));
+
+    await expect(appendChatTurn(messages, "I am stuck.", requestReply)).rejects.toThrow("offline");
+
+    expect(messages).toEqual([]);
+    expect(requestReply).toHaveBeenCalledOnce();
+  });
+
+  it("keeps a successful user/assistant exchange in the draft", async () => {
+    const messages: Message[] = [];
+
+    const result = await appendChatTurn(messages, "I am stuck.", async () => "What feels hardest?");
+
+    expect(result.map(({ role, content }) => ({ role, content }))).toEqual([
+      { role: "user", content: "I am stuck." },
+      { role: "assistant", content: "What feels hardest?" },
     ]);
   });
 });
