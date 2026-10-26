@@ -1,0 +1,1 @@
+"""Cognitrace AI module foundation."""
