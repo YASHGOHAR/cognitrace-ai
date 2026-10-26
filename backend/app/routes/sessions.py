@@ -1,10 +1,17 @@
 """Endpoints for creating and reading reasoning sessions."""
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
 from ai.storage.session_store import StoredSession
 from ai.workflow import ReasoningWorkflowError, process_reasoning_session
-from backend.app.schemas import CreateSessionRequest, SessionHistoryResponse, StoredSessionResponse
+from backend.app.schemas import (
+    CreateDraftRequest,
+    CreateSessionRequest,
+    DraftResponse,
+    SessionHistoryResponse,
+    StoredSessionResponse,
+    UpdateDraftRequest,
+)
 from backend.app.security import AuthenticatedUser, get_current_user
 from backend.app.session_storage import get_request_session_store
 from ai.storage.session_repository import SupabaseSessionStore
@@ -39,6 +46,49 @@ def _request_store(user):
         return get_request_session_store(user)
     except ValueError:
         raise HTTPException(status_code=503, detail="Session storage is not configured.") from None
+
+
+@router.get("/drafts", response_model=list[DraftResponse])
+def get_drafts(user: AuthenticatedUser = Depends(get_current_user)) -> list[dict[str, object]]:
+    """Return the signed-in user's active drafts."""
+    try:
+        return _request_store(user).list_drafts()
+    except Exception:
+        raise HTTPException(status_code=503, detail="Draft storage is unavailable.") from None
+
+
+@router.post("/drafts", response_model=DraftResponse, status_code=status.HTTP_201_CREATED)
+def create_draft(body: CreateDraftRequest,
+                 user: AuthenticatedUser = Depends(get_current_user)) -> dict[str, object]:
+    """Create a durable, owner-scoped reflection draft."""
+    try:
+        return _request_store(user).save_draft(body.session_id, body.title.strip(), [])
+    except Exception:
+        raise HTTPException(status_code=503, detail="Draft storage is unavailable.") from None
+
+
+@router.patch("/drafts/{session_id}", response_model=DraftResponse)
+def update_draft(session_id: str, body: UpdateDraftRequest,
+                 user: AuthenticatedUser = Depends(get_current_user)) -> dict[str, object]:
+    """Save the latest transcript messages for the draft owner."""
+    messages = [message.model_dump(by_alias=True) for message in body.messages]
+    try:
+        updated = _request_store(user).update_draft(session_id, body.title.strip(), messages)
+    except Exception:
+        raise HTTPException(status_code=503, detail="Draft storage is unavailable.") from None
+    if updated is None:
+        raise HTTPException(status_code=404, detail="Draft not found.")
+    return updated
+
+
+@router.delete("/drafts/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
+def remove_draft(session_id: str, user: AuthenticatedUser = Depends(get_current_user)) -> Response:
+    """Remove a draft after its completed reflection has been saved."""
+    try:
+        _request_store(user).delete_draft(session_id)
+    except Exception:
+        raise HTTPException(status_code=503, detail="Draft storage is unavailable.") from None
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/chat", response_model=ChatResponse)

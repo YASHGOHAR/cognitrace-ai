@@ -96,40 +96,93 @@ export default function App() {
     return () => removeEventListener("hashchange", onHash);
   }, []);
   useEffect(() => {
-    if (route === "auth") {
-      setLoading(false);
-      return;
-    }
-    Promise.all([
-      api.me(),
-      api.sessions(),
-      api.patterns(),
-      api.recommendations(),
-    ])
-      .then(([u, s, p, r]) => {
-        setUser(u);
+    let mounted = true;
+    const initialize = async () => {
+      try {
+        let restoredUser: User | null;
+        if (!mockMode) {
+          restoredUser = await api.restoreAuth();
+          if (!mounted) return;
+          if (!restoredUser) {
+            setRoute("auth");
+            return;
+          }
+        } else {
+          if (route === "auth") return;
+          restoredUser = await api.me();
+        }
+        const [s, p, r] = await Promise.all([
+          api.sessions(),
+          api.patterns(),
+          api.recommendations(),
+        ]);
+        if (!mounted) return;
+        setUser(restoredUser);
         setSessions(s);
+        const storedSessionId = localStorage.getItem(
+          `cognitrace.activeSession.${restoredUser.id}`,
+        );
+        setActiveSession(
+          s.some((session) => session.id === storedSessionId)
+            ? storedSessionId!
+            : s[0]?.id ?? "",
+        );
         setPatterns(p);
         setRecommendations(r);
-      })
-      .catch((e) =>
-        setError(
-          e instanceof Error ? e.message : "Could not load your workspace.",
-        ),
-      )
-      .finally(() => setLoading(false));
+        if (!mockMode) {
+          const requestedRoute = location.hash.replace(/^#\/?/, "") as Route;
+          const validRoutes: Route[] = ["overview", "sessions", "analysis", "patterns", "recommendations", "settings", "chat"];
+          setRoute(validRoutes.includes(requestedRoute) ? requestedRoute : "overview");
+        }
+      } catch (e) {
+        if (mounted) {
+          setError(e instanceof Error ? e.message : "Could not restore your workspace.");
+          if (!mockMode) setRoute("auth");
+        }
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+    void initialize();
+    return () => {
+      mounted = false;
+    };
   }, []);
   useEffect(() => {
-    if (route === "analysis" && activeSession)
-      api
-        .analysis(activeSession)
-        .then(setAnalysis)
-        .catch((e) =>
+    if (user?.id && activeSession)
+      localStorage.setItem(`cognitrace.activeSession.${user.id}`, activeSession);
+  }, [user?.id, activeSession]);
+  useEffect(() => {
+    if (route !== "analysis" || loading) return;
+    const selectedSession = sessions.find((session) => session.id === activeSession);
+    if (!selectedSession) {
+      setError("Choose a saved session to open its reflection.");
+      setRoute("sessions");
+      location.hash = "/sessions";
+      return;
+    }
+    if (selectedSession.status !== "completed") {
+      setError("");
+      setRoute("chat");
+      location.hash = "/chat";
+      return;
+    }
+    let current = true;
+    api
+      .analysis(activeSession)
+      .then((result) => {
+        if (current) setAnalysis(result);
+      })
+      .catch((e) => {
+        if (current)
           setError(
             e instanceof Error ? e.message : "Could not load this reflection.",
-          ),
-        );
-  }, [route, activeSession]);
+          );
+      });
+    return () => {
+      current = false;
+    };
+  }, [route, activeSession, loading, sessions]);
   const navigate = (next: Route) => {
     setRoute(next);
     location.hash = `/${next}`;
@@ -181,7 +234,17 @@ export default function App() {
       setError(
         e instanceof Error ? e.message : "Your message could not be sent.",
       );
-      return false;
+      try {
+        const updatedSessions = await api.sessions();
+        setSessions(updatedSessions);
+        return Boolean(
+          updatedSessions
+            .find((session) => session.id === current.id)
+            ?.messages.some((message) => message.role === "user" && message.content === text.trim()),
+        );
+      } catch {
+        return false;
+      }
     } finally {
       setBusy(false);
     }
@@ -216,7 +279,7 @@ export default function App() {
       setError("Feedback could not be saved.");
     }
   };
-  if (loading && route !== "auth")
+  if (loading && (route !== "auth" || !mockMode))
     return (
       <div className="loading-screen">
         <div className="brand-mark">
@@ -240,6 +303,7 @@ export default function App() {
               api.recommendations(),
             ]);
             setSessions(s);
+            setActiveSession(s[0]?.id ?? "");
             setPatterns(p);
             setRecommendations(r);
             navigate("overview");
@@ -905,16 +969,26 @@ function Chat({
   onComplete: () => void;
 }) {
   const [text, setText] = useState("");
+  const [pendingMessage, setPendingMessage] = useState<Message | null>(null);
   const messagesRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     const messages = messagesRef.current;
     messages?.scrollTo({ top: messages.scrollHeight, behavior: "smooth" });
-  }, [session?.messages.length, busy]);
+  }, [session?.messages.length, busy, pendingMessage?.id]);
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (text.trim() && !busy) {
-      const sent = await onSend(text.trim());
-      if (sent) setText("");
+      const content = text.trim();
+      setPendingMessage({
+        id: crypto.randomUUID(),
+        role: "user",
+        content,
+        createdAt: new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
+      });
+      setText("");
+      const sent = await onSend(content);
+      setPendingMessage(null);
+      if (!sent) setText((current) => current || content);
     }
   };
   return (
@@ -958,10 +1032,18 @@ function Chat({
       </div>
       <div className="chat-card">
         <div className="chat-messages" ref={messagesRef}>
-          {session?.messages.length ? (
-            session.messages.map((message, index) => (
-              <MessageBubble key={message.id} message={message} index={index} />
-            ))
+          {session?.messages.length || pendingMessage ? (
+            <>
+              {session?.messages.map((message, index) => (
+                <MessageBubble key={message.id} message={message} index={index} />
+              ))}
+              {pendingMessage && (
+                <MessageBubble
+                  message={pendingMessage}
+                  index={session?.messages.length ?? 0}
+                />
+              )}
+            </>
           ) : (
             <div className="chat-empty">
               <span className="chat-orb">
@@ -976,18 +1058,25 @@ function Chat({
             </div>
           )}
           {busy && (
-            <div className="typing-row">
-              <span className="assistant-avatar">
+            <div className="message-row assistant-row response-pending" role="status" aria-live="polite">
+              <div className="message-avatar">
                 <Icon name="spark" size={14} />
-              </span>
-              <span className="typing-dots">
-                <i />
-                <i />
-                <i />
-              </span>
-              <small>
-                {realMode ? "Taking a moment with your note…" : "Finding a helpful question…"}
-              </small>
+              </div>
+              <div className="message-content">
+                <div className="message-byline">
+                  Cognitrace <span>composing</span>
+                </div>
+                <div className="bubble assistant-bubble response-generating">
+                  <div className="response-generating-title">
+                    <span className="response-pulse"><i /><i /><i /></span>
+                    {realMode ? "Thinking through your note" : "Finding a helpful question"}
+                  </div>
+                  <div className="response-skeleton" aria-hidden="true">
+                    <i /><i /><i />
+                  </div>
+                  <small>{realMode ? "Connecting the details you shared…" : "Putting a thoughtful reply together…"}</small>
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -1663,10 +1752,12 @@ function NewSessionModal({
           }}
         />
         <label className="field-label">A STARTING POINT</label>
-        <div className="topic-chips">
+        <div className="topic-chips" role="group" aria-label="Choose a starting point">
           {prompts.map((item) => (
             <button
+              type="button"
               className={topic === item ? "topic-selected" : ""}
+              aria-pressed={topic === item}
               onClick={() => setTopic(item)}
               key={item}
             >

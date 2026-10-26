@@ -49,6 +49,22 @@ def initialize_database(db_path: str | Path | None = None) -> None:
                 )
                 """
             )
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS reflection_drafts (
+                    session_id TEXT PRIMARY KEY,
+                    owner_id TEXT NOT NULL,
+                    title TEXT NOT NULL,
+                    messages_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                )
+                """
+            )
+            connection.execute(
+                "CREATE INDEX IF NOT EXISTS idx_reflection_drafts_owner_updated "
+                "ON reflection_drafts(owner_id, updated_at DESC)"
+            )
             columns = {
                 row[1]
                 for row in connection.execute("PRAGMA table_info(reasoning_sessions)")
@@ -180,3 +196,74 @@ def list_sessions(
         StoredSession(row[0], row[1], row[2], ReasoningExtraction.model_validate(json.loads(row[3])))
         for row in rows
     ]
+
+
+def save_draft(session_id: str, owner_id: str, title: str, messages: list[dict], *,
+               db_path: str | Path | None = None) -> dict:
+    """Create an owner-scoped in-progress reflection draft."""
+    if not session_id.strip() or not owner_id.strip() or not title.strip():
+        raise ValueError("Draft ID, owner, and title are required.")
+    now = datetime.now(timezone.utc).isoformat(timespec="microseconds")
+    path = _database_path(db_path)
+    initialize_database(path)
+    with closing(sqlite3.connect(path)) as connection:
+        with connection:
+            connection.execute(
+                "INSERT INTO reflection_drafts "
+                "(session_id, owner_id, title, messages_json, created_at, updated_at) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (session_id, owner_id, title, json.dumps(messages, ensure_ascii=False), now, now),
+            )
+    return {"session_id": session_id, "owner_id": owner_id, "title": title,
+            "messages": messages, "created_at": now, "updated_at": now}
+
+
+def update_draft(session_id: str, owner_id: str, title: str, messages: list[dict], *,
+                 db_path: str | Path | None = None) -> dict | None:
+    """Update a draft only when it belongs to the verified user."""
+    now = datetime.now(timezone.utc).isoformat(timespec="microseconds")
+    path = _database_path(db_path)
+    initialize_database(path)
+    with closing(sqlite3.connect(path)) as connection:
+        with connection:
+            cursor = connection.execute(
+                "UPDATE reflection_drafts SET title = ?, messages_json = ?, updated_at = ? "
+                "WHERE session_id = ? AND owner_id = ?",
+                (title, json.dumps(messages, ensure_ascii=False), now, session_id, owner_id),
+            )
+            if cursor.rowcount == 0:
+                return None
+            row = connection.execute(
+                "SELECT created_at FROM reflection_drafts WHERE session_id = ? AND owner_id = ?",
+                (session_id, owner_id),
+            ).fetchone()
+    return {"session_id": session_id, "owner_id": owner_id, "title": title,
+            "messages": messages, "created_at": row[0], "updated_at": now}
+
+
+def list_drafts(owner_id: str, *, db_path: str | Path | None = None) -> list[dict]:
+    """List only the signed-in user's drafts, newest activity first."""
+    path = _database_path(db_path)
+    initialize_database(path)
+    with closing(sqlite3.connect(path)) as connection:
+        rows = connection.execute(
+            "SELECT session_id, owner_id, title, messages_json, created_at, updated_at "
+            "FROM reflection_drafts WHERE owner_id = ? ORDER BY updated_at DESC",
+            (owner_id,),
+        ).fetchall()
+    return [{"session_id": row[0], "owner_id": row[1], "title": row[2],
+             "messages": json.loads(row[3]), "created_at": row[4], "updated_at": row[5]}
+            for row in rows]
+
+
+def delete_draft(session_id: str, owner_id: str, *, db_path: str | Path | None = None) -> bool:
+    """Delete one draft only for its owner."""
+    path = _database_path(db_path)
+    initialize_database(path)
+    with closing(sqlite3.connect(path)) as connection:
+        with connection:
+            cursor = connection.execute(
+                "DELETE FROM reflection_drafts WHERE session_id = ? AND owner_id = ?",
+                (session_id, owner_id),
+            )
+    return cursor.rowcount > 0
