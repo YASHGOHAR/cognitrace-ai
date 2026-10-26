@@ -15,8 +15,12 @@ from uuid import uuid4
 from ai.schemas.reasoning import ReasoningExtraction
 from ai.storage.session_store import DuplicateSessionError, StoredSession
 from ai.storage.session_store import get_session as sqlite_get_session
+from ai.storage.session_store import delete_draft as sqlite_delete_draft
+from ai.storage.session_store import list_drafts as sqlite_list_drafts
 from ai.storage.session_store import list_sessions as sqlite_list_sessions
+from ai.storage.session_store import save_draft as sqlite_save_draft
 from ai.storage.session_store import save_session as sqlite_save_session
+from ai.storage.session_store import update_draft as sqlite_update_draft
 
 
 def _is_publishable_key(value: str) -> bool:
@@ -71,6 +75,18 @@ class SQLiteSessionStore(SessionStore):
         return sqlite_list_sessions(limit=limit, offset=offset,
                                     db_path=self.db_path, owner_id=self.owner_id)
 
+    def save_draft(self, session_id, title, messages):
+        return sqlite_save_draft(session_id, self.owner_id, title, messages, db_path=self.db_path)
+
+    def update_draft(self, session_id, title, messages):
+        return sqlite_update_draft(session_id, self.owner_id, title, messages, db_path=self.db_path)
+
+    def list_drafts(self):
+        return sqlite_list_drafts(self.owner_id, db_path=self.db_path)
+
+    def delete_draft(self, session_id):
+        return sqlite_delete_draft(session_id, self.owner_id, db_path=self.db_path)
+
 
 @dataclass(frozen=True)
 class SupabaseSessionStore(SessionStore):
@@ -88,6 +104,7 @@ class SupabaseSessionStore(SessionStore):
     transport: Callable[[Request], Any] | None = field(default=None, repr=False, compare=False)
 
     TABLE = "reasoning_sessions"
+    DRAFTS_TABLE = "reflection_drafts"
     PAGE_SIZE = 1000
 
     def __post_init__(self):
@@ -102,12 +119,12 @@ class SupabaseSessionStore(SessionStore):
         if not _is_publishable_key(self.publishable_key):
             raise ValueError("Supabase storage requires a publishable or legacy anon project key.")
 
-    @property
-    def _endpoint(self):
-        return f"{self.project_url.rstrip('/')}/rest/v1/{self.TABLE}"
+    def _endpoint(self, table=None):
+        return f"{self.project_url.rstrip('/')}/rest/v1/{table or self.TABLE}"
 
-    def _request(self, method, params, body=None):
-        url = f"{self._endpoint}?{urlencode(params)}" if params else self._endpoint
+    def _request(self, method, params, body=None, *, table=None):
+        endpoint = self._endpoint(table)
+        url = f"{endpoint}?{urlencode(params)}" if params else endpoint
         headers = {"apikey": self.publishable_key,
                    "Authorization": f"Bearer {self.access_token}",
                    "Accept": "application/json"}
@@ -196,3 +213,38 @@ class SupabaseSessionStore(SessionStore):
             if len(page) < size:
                 break
         return [self._as_session(row) for row in rows]
+
+    def save_draft(self, session_id, title, messages):
+        if not session_id or not title.strip():
+            raise ValueError("Draft ID and title are required.")
+        now = datetime.now(timezone.utc).isoformat(timespec="microseconds")
+        row = {"session_id": session_id, "owner_id": self.owner_id, "title": title,
+               "messages": messages, "created_at": now, "updated_at": now}
+        returned = self._request("POST", {"select": "*"}, row, table=self.DRAFTS_TABLE)
+        return returned[0] if returned else row
+
+    def update_draft(self, session_id, title, messages):
+        now = datetime.now(timezone.utc).isoformat(timespec="microseconds")
+        rows = self._request(
+            "PATCH",
+            {"session_id": f"eq.{session_id}", "owner_id": f"eq.{self.owner_id}", "select": "*"},
+            {"title": title, "messages": messages, "updated_at": now},
+            table=self.DRAFTS_TABLE,
+        )
+        return rows[0] if rows else None
+
+    def list_drafts(self):
+        rows = self._request(
+            "GET",
+            {"select": "*", "owner_id": f"eq.{self.owner_id}",
+             "order": "updated_at.desc,session_id.desc"},
+            table=self.DRAFTS_TABLE,
+        )
+        return rows
+
+    def delete_draft(self, session_id):
+        self._request(
+            "DELETE", {"session_id": f"eq.{session_id}", "owner_id": f"eq.{self.owner_id}",
+                       "select": "session_id"}, table=self.DRAFTS_TABLE,
+        )
+        return True
